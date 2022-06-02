@@ -1,60 +1,46 @@
-<?php 
-const CUSTOM_CHUNK_SIZE = 8192;
-$inputFilename = "./OG-video-file.mp4";
-$outputEnptFilename = "./enpt-video-file.mp4";
-$outputDnptFilename = "./dnpt-video-file.mp4";
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', true);
 
-/**
- * @ref https://stackoverflow.com/q/11716047
- */
-function encryptFile(string $inputFilename, string $outputFilename, string $key): bool
+
+$encKey = 'FCAcEA0HBAoRGyALBQIeCAcaDxYWEQQPBxcXHgAFDgY=';
+$encIV = 'DB4gHxkcBQkKCxoRGBkaFA==';
+
+// $file = "OG-video-file.mp4";
+$file = "OG-video-file-e.himu";
+$inPath = "/var/www/html/video-or-large-file-encryption-and-decryption-in-php7.2-version/" . $file;
+$outPath = "/var/www/html/video-or-large-file-encryption-and-decryption-in-php7.2-version/";
+
+function encryptFile($encKey, $encIV, $inPath, $outPath)
 {
-    $iFP = fopen($inputFilename, 'rb');
-    $oFP = fopen($outputFilename, 'wb');
-
-    [$state, $header] = sodium_crypto_secretstream_xchacha20poly1305_init_push($key);
-
-    fwrite($oFP, $header, 24); // Write the header first:
-    $size = fstat($iFP)['size'];
-    for ($pos = 0; $pos < $size; $pos += CUSTOM_CHUNK_SIZE) {
-        $chunk = fread($iFP, CUSTOM_CHUNK_SIZE);
-        $encrypted = sodium_crypto_secretstream_xchacha20poly1305_push($state, $chunk);
-        fwrite($oFP, $encrypted, CUSTOM_CHUNK_SIZE + 17);
-        sodium_memzero($chunk);
-    }
-
-    fclose($iFP);
-    fclose($oFP);
-    return true;
+  $sourceFile = file_get_contents($inPath);
+  $key = base64_decode($encKey);
+  $iv = base64_decode($encIV);
+  $path_parts = pathinfo($inPath);
+  $fileName = $path_parts['filename'];
+  $outFile = $outPath . $fileName . '-e.himu';
+  $encrypter = 'aes-256-cbc';
+  $encryptedString = openssl_encrypt($sourceFile, $encrypter, $key, 0, $iv);
+  if (file_put_contents($outFile, $encryptedString) != false) return 1;
+  else return 0;
 }
 
-/**
- * @ref https://stackoverflow.com/q/11716047
- */
-function decryptFile(string $inputFilename, string $outputFilename, string $key): bool
+function decryptFile($encKey, $encIV, $inPath, $outPath)
 {
-    $iFP = fopen($inputFilename, 'rb');
-    $oFP = fopen($outputFilename, 'wb');
-
-    $header = fread($iFP, 24);
-    $state = sodium_crypto_secretstream_xchacha20poly1305_init_pull($header, $key);
-    $size = fstat($iFP)['size'];
-    $readChunkSize = CUSTOM_CHUNK_SIZE + 17;
-    for ($pos = 24; $pos < $size; $pos += $readChunkSize) {
-        $chunk = fread($iFP, $readChunkSize);
-        [$plain, $tag] = sodium_crypto_secretstream_xchacha20poly1305_pull($state, $chunk);
-        fwrite($oFP, $plain, CUSTOM_CHUNK_SIZE);
-        sodium_memzero($plain);
-    }
-    fclose($iFP);
-    fclose($oFP);
-    return true;
+  $encryptedString = file_get_contents($inPath);
+  $key = base64_decode($encKey);
+  $iv = base64_decode($encIV);
+  $path_parts = pathinfo($inPath);
+  $fileName = $path_parts['filename'];
+  $outFile = $outPath . $fileName . '-d.mp4';
+  $encrypter = 'aes-256-cbc';
+  $decrypted = openssl_decrypt($encryptedString, $encrypter, $key, 0, $iv);
+  if (file_put_contents($outFile, $decrypted) != false) return 1;
+  else return 0;
 }
 
-// $key = random_bytes(32);
-$key = '12345678901234567890123456789012';
-// echo $key;
-// exit;
-echo "ENPT " . encryptFile($inputFilename, $outputEnptFilename, $key);
-echo "<br/>";
-echo "DNTP " .decryptFile($outputEnptFilename, $outputDnptFilename, $key);
+// encryptFile($encKey, $encIV, $inPath, $outPath);
+// echo "encrypt done >>";
+decryptFile($encKey, $encIV, $inPath, $outPath);
+echo "decrypt done >>";
+exit;
